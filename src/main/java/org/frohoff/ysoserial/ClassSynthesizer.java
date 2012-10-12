@@ -34,6 +34,9 @@ public class ClassSynthesizer {
 		final FieldDesc[] fields = desc.getFields();
 		
 		final ClassPool pool = ClassPool.getDefault();
+		
+		pool.importPackage(ClassSynthesizer.class.getPackage().getName());
+		
 		final CtClass cc = pool.makeClass(desc.getName(), superClassDesc != null ? pool.getCtClass(superClassDesc.getName()) : null);
 		
 		cc.addInterface(pool.getCtClass(Doppelganger.class.getName()));
@@ -48,13 +51,13 @@ public class ClassSynthesizer {
 			cc.addInterface(pool.getCtClass(Serializable.class.getName()));
 			if ((desc.getFlags() & ObjectStreamConstants.SC_WRITE_METHOD) != 0) {
 				cc.addMethod(CtMethod.make(
-					"private void readObject(java.io.ObjectInputStream in){" 
-						+ OBJECT_CONTENTS_FIELD_NAME + " = " + ObjectContent.class.getName() + ".read(in)"   
-					+ ";}", cc));
+					"private void readObject(java.io.ObjectInputStream in){\n" 
+						+ OBJECT_CONTENTS_FIELD_NAME + " = " + ObjectContent.class.getSimpleName() + ".read(in);\n"   
+					+ "}", cc));
 				cc.addMethod(CtMethod.make(
-						"private void writeObject(java.io.ObjectOutputStream out) {"
-							+ ObjectContent.class.getName() + ".write(" + OBJECT_CONTENTS_FIELD_NAME + ",out)"					
-						+";}", cc));				
+						"private void writeObject(java.io.ObjectOutputStream out) {\n"
+							+ ObjectContent.class.getSimpleName() + ".write(" + OBJECT_CONTENTS_FIELD_NAME + ",out);\n"					
+						+"}", cc));				
 			}
 		}
 		
@@ -63,13 +66,13 @@ public class ClassSynthesizer {
 			cc.addInterface(pool.getCtClass(Externalizable.class.getName()));
 			
 			cc.addMethod(CtMethod.make(
-					"public void readExternal(java.io.ObjectInput in) {"
-						+ OBJECT_CONTENTS_FIELD_NAME + " = " + ObjectContent.class.getName() + ".read(in)"					
-					+";}", cc));
+					"public void readExternal(java.io.ObjectInput in) {\n"
+						+ OBJECT_CONTENTS_FIELD_NAME + " = " + ObjectContent.class.getSimpleName() + ".read(in);\n"					
+					+"}", cc));
 			cc.addMethod(CtMethod.make(
-					"public void writeExternal(java.io.ObjectOutput out) {"
-						+ ObjectContent.class.getName() + ".write(" + OBJECT_CONTENTS_FIELD_NAME + ",out)"					
-					+";}", cc));
+					"public void writeExternal(java.io.ObjectOutput out) {\n"
+						+ ObjectContent.class.getSimpleName() + ".write(" + OBJECT_CONTENTS_FIELD_NAME + ",out);\n"					
+					+"}", cc));
 		}
 		
 		// handle non-transient fields
