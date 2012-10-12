@@ -31,7 +31,7 @@ public class WriteFiles {
 			
 			
 		};
-		out.writeObject(new Simple[] {  });		
+		out.writeObject(new Simple[] { new Simple() });		
 		out.close();
 	}
 }

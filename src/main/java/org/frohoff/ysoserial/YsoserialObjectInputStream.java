@@ -20,32 +20,17 @@ public class YsoserialObjectInputStream extends ObjectInputStream {
 			throw new IllegalArgumentException("stream needs to support mark()/reset()");
 		in.mark(Integer.MAX_VALUE);
 		scan = new SerialScan(in, false);
-		scan.readObject();		
+		System.out.println(scan.readObject());		
 		in.reset();		
 	}
 	
 	@Override
 	protected Class<?> resolveClass(ObjectStreamClass desc) throws IOException, ClassNotFoundException {
-		System.out.println("resolving " + desc);
 		try {
 			return super.resolveClass(desc);
 		} catch (Exception e1) {
 			ClassDesc d = scan.getClassDescriptions().get(desc.getName());
 			return resolveClass(d);
-//			try {
-//
-////				ObjectStreamClass parent = (ObjectStreamClass) getValue(desc, "superDesc");
-////				if (parent != null)
-////					resolveClass(parent);
-//				if (desc.getName().startsWith("[L") && desc.getName().endsWith(";")) { //array
-//					ClassSynthesizer.synthesize(desc.getName().replaceAll("\\[L(.*);", "$1"));
-//					return Class.forName(desc.getName());
-//				} 
-//				
-//				return ClassSynthesizer.synthesize(desc);
-//			} catch (Exception e2) {
-//				throw new RuntimeException(e2);
-//			}
 		}
 	}
 	

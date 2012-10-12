@@ -160,17 +160,7 @@ public class SerialScan {
             // These are internal serialization objects which shouldn't
             // escape to this level.
         //}
-        exit(x);
-		for (int i=0; i<handles.size(); i++ ) {
-			System.out.print(i);
-			System.out.print(": ");
-			System.out.println(handles.get(i));
-		}
-		try {
-			System.out.println(handles.get(39));
-		} catch (Exception ex) {
-			
-		}
+        exit(x);		
         return (SEntity) x;
     }
 
@@ -492,8 +482,7 @@ public class SerialScan {
 
     private SEntity prevObject() throws IOException {
         int h = din.readInt();
-        int i = h - baseWireHandle;
-        System.out.println(i);
+        int i = h - baseWireHandle;        
         if (i < 0 || i > handles.size())
             throw new StreamCorruptedException("Bad handle: " + h);
         return handles.get(i);

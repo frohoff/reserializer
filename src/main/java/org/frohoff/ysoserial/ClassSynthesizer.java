@@ -2,11 +2,9 @@ package org.frohoff.ysoserial;
 
 import static java.io.ObjectStreamConstants.SC_EXTERNALIZABLE;
 import static java.io.ObjectStreamConstants.SC_SERIALIZABLE;
-import static privilegedaccessor.StrictPA.getValue;
 
 import java.io.Externalizable;
-import java.io.ObjectStreamClass;
-import java.io.ObjectStreamField;
+import java.io.ObjectStreamConstants;
 import java.io.Serializable;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -25,45 +23,7 @@ import net.mcmanus.eamonn.serialysis.SerialScan.FieldDesc;
 import net.mcmanus.eamonn.serialysis.SerialScan.ObjectClassDesc;
 
 public class ClassSynthesizer {
-
-	static Class<?> synthesize(ObjectStreamClass desc) throws NoSuchFieldException, NotFoundException, CannotCompileException {
-		final ObjectStreamField[] fields = desc.getFields();
-		
-		final ClassPool pool = ClassPool.getDefault();
-		final CtClass cc = pool.makeClass(desc.getName());
-		
-		cc.addInterface(pool.getCtClass(Doppelganger.class.getName()));
-		
-		if ((Boolean) getValue(desc, "serializable"))
-			cc.addInterface(pool.getCtClass(Serializable.class.getName()));
-		if ((Boolean) getValue(desc, "externalizable")) {
-			cc.addInterface(pool.getCtClass(Externalizable.class.getName()));
-			// FIXME: implement this
-			new UnsupportedOperationException("need to add some methods to the class");
-		}
-		
-		// add serialVersionUID
-		cc.addField(new CtField(CtClass.longType,"serialVersionUID", cc){{
-			setModifiers(Modifier.PRIVATE | Modifier.STATIC | Modifier.FINAL);
-		}}, CtField.Initializer.constant(desc.getSerialVersionUID()));
-		
-		
-		// add fields in desc
-		for (final ObjectStreamField field : fields) {
-			cc.addField(new CtField(pool.getCtClass(field.getType().getName()), field.getName(), cc));
-		}
-		
-		
-		
-		return cc.toClass();
-	}
-
-	public static Class<?> synthesize(String name) throws CannotCompileException {
-		final ClassPool pool = ClassPool.getDefault();
-		final CtClass cc = pool.makeClass(name);
-		
-		return cc.toClass();
-	}
+	private static final String OBJECT_CONTENTS_FIELD_NAME = "_ysoserial_contents";
 
 	public static Class<?> synthesize(ObjectClassDesc desc) throws NoSuchFieldException, NotFoundException, CannotCompileException  {
 		try {
@@ -78,26 +38,47 @@ public class ClassSynthesizer {
 		
 		cc.addInterface(pool.getCtClass(Doppelganger.class.getName()));
 		
-		//if ((Boolean) getValue(desc, "serializable")) 
-		if ((desc.getFlags() & SC_SERIALIZABLE) != 0) 
+		// add field for object contents
+		cc.addField(new CtField(pool.getCtClass(ObjectContent.class.getName()), OBJECT_CONTENTS_FIELD_NAME, cc){{
+			setModifiers(Modifier.TRANSIENT | Modifier.PRIVATE);
+		}});
+
+		// handle serializable
+		if ((desc.getFlags() & SC_SERIALIZABLE) != 0) {
 			cc.addInterface(pool.getCtClass(Serializable.class.getName()));
-		//if ((Boolean) getValue(desc, "externalizable")) {
+			if ((desc.getFlags() & ObjectStreamConstants.SC_WRITE_METHOD) != 0) {
+				cc.addMethod(CtMethod.make(
+					"private void readObject(java.io.ObjectInputStream in){" 
+						+ OBJECT_CONTENTS_FIELD_NAME + " = " + ObjectContent.class.getName() + ".read(in)"   
+					+ ";}", cc));
+				cc.addMethod(CtMethod.make(
+						"private void writeObject(java.io.ObjectOutputStream out) {"
+							+ ObjectContent.class.getName() + ".write(" + OBJECT_CONTENTS_FIELD_NAME + ",out)"					
+						+";}", cc));				
+			}
+		}
+		
+		// handle externalizable
 		if ((desc.getFlags() & SC_EXTERNALIZABLE) != 0) {
 			cc.addInterface(pool.getCtClass(Externalizable.class.getName()));
 			
-			cc.addMethod(CtMethod.make("public void readExternal(java.io.ObjectInput in) {}", cc));
-			cc.addMethod(CtMethod.make("public void writeExternal(java.io.ObjectOutput in) {}", cc));
-			// FIXME: implement this
-			//new UnsupportedOperationException("need to add some methods to the class");
+			cc.addMethod(CtMethod.make(
+					"public void readExternal(java.io.ObjectInput in) {"
+						+ OBJECT_CONTENTS_FIELD_NAME + " = " + ObjectContent.class.getName() + ".read(in)"					
+					+";}", cc));
+			cc.addMethod(CtMethod.make(
+					"public void writeExternal(java.io.ObjectOutput out) {"
+						+ ObjectContent.class.getName() + ".write(" + OBJECT_CONTENTS_FIELD_NAME + ",out)"					
+					+";}", cc));
 		}
 		
-		// add fields in desc
+		// handle non-transient fields
 		for (final FieldDesc field : fields) {
 			cc.addField(new CtField(pool.getCtClass(field.getTypeName()), field.getName(), cc));
 		}		
 		
-		// add serialVersionUID
-		if (desc.getSerialVersionUID() != null) {			
+		// handle serialVersionUID
+		if (desc.getSerialVersionUID() != null && (desc.getFlags() & (SC_SERIALIZABLE | SC_EXTERNALIZABLE)) != 0) {			
 			cc.addField(new CtField(CtClass.longType,"serialVersionUID", cc){{
 				setModifiers(Modifier.PRIVATE | Modifier.STATIC | Modifier.FINAL);
 			}}, CtField.Initializer.constant(desc.getSerialVersionUID()));			
@@ -105,6 +86,7 @@ public class ClassSynthesizer {
 			SerialVersionUID.setSerialVersionUID(cc);
 		}		
 		
+		// handle enums
 		if (superClassDesc != null && superClassDesc.getName().equals("java.lang.Enum")) {
 			String name = cc.getName();
 			CtMethod method = CtMethod.make("public static " + name + "[] values() { return new " + name + "[0]; }" , cc);
@@ -113,8 +95,10 @@ public class ClassSynthesizer {
 			cc.setModifiers(cc.getModifiers() | Modifier.ENUM);
 		}
 		
+		// create class		
 		Class<?> clazz = cc.toClass(); 
 		
+		// dynamically add enum values
 		if (Enum.class.isAssignableFrom(clazz)) {
 			addEnumValues((Class<? extends Enum>) clazz, desc.getEnumValues().toArray(new String[0]));
 		}

@@ -39,9 +39,6 @@
 
 package net.mcmanus.eamonn.serialysis;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
 import java.util.Stack;
 
 /**
@@ -65,7 +62,7 @@ public abstract class SEntity {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append(kind()).append("(").append(type).append("){");
-       /* Stack<SEntity> stack = stringThings.get();
+        Stack<SEntity> stack = stringThings.get();
         if (stack.contains(this)) {
             sb.append("...");
         } else {
@@ -75,7 +72,7 @@ public abstract class SEntity {
         }
         if (sb.charAt(sb.length() - 1) == '\n')
             indent(sb);
-        sb.append("}");*/
+        sb.append("}");
         return sb.toString();
     }
 
